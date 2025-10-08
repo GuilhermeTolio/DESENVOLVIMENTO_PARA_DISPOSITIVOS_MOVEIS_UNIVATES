@@ -6,6 +6,7 @@ Aplicativo React Native/Expo para gerenciar treinos pessoais com banco SQLite.
 
 - Cadastrar treinos (atividade, duração, categoria)
 - Listar todos os treinos
+- Editar treinos existentes
 - Excluir treinos
 - Banco de dados local (SQLite)
 
@@ -87,9 +88,19 @@ CREATE TABLE treinos (
 - Duração: número > 0
 - Categoria: obrigatória
 
+## Operações CRUD
+
+- **CREATE**: Inserir novo treino
+- **READ**: Listar todos os treinos
+- **UPDATE**: Editar treino existente
+- **DELETE**: Excluir treino
+
 ## Comandos Úteis
 
 ```bash
+# Tunnel
+npx expo start --clear
+
 # Limpar cache
 npx expo start --clear
 

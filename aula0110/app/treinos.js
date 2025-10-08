@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { inserirTreino, buscarTreinos, excluirTreino } from '../database/database';
+import { inserirTreino, buscarTreinos, excluirTreino, editarTreino, excluirTodosTreinos } from '../database/database';
 
 export default function Treinos() {
   const router = useRouter();
@@ -25,6 +25,8 @@ export default function Treinos() {
   const [categoria, setCategoria] = useState('');
   const [intensidade, setIntensidade] = useState('');
   const [observacoes, setObservacoes] = useState('');
+  const [editandoTreino, setEditandoTreino] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const categorias = ['Cardio', 'Força', 'Técnica', 'Flexibilidade', 'Resistência'];
   const intensidades = ['Baixa', 'Moderada', 'Alta', 'Máxima'];
@@ -67,20 +69,32 @@ export default function Treinos() {
     if (!validarCampos()) return;
 
     try {
-      await inserirTreino(
-        atividade.trim(),
-        parseInt(duracaoMin),
-        categoria,
-        intensidade || null,
-        observacoes.trim() || null
-      );
+      if (isEditMode && editandoTreino) {
+        await editarTreino(
+          editandoTreino.id,
+          atividade.trim(),
+          parseInt(duracaoMin),
+          categoria,
+          intensidade || null,
+          observacoes.trim() || null
+        );
+        Alert.alert('Sucesso', 'Treino editado com sucesso!');
+      } else {
+        await inserirTreino(
+          atividade.trim(),
+          parseInt(duracaoMin),
+          categoria,
+          intensidade || null,
+          observacoes.trim() || null
+        );
+        Alert.alert('Sucesso', 'Treino cadastrado com sucesso!');
+      }
       
-      Alert.alert('Sucesso', 'Treino cadastrado com sucesso!');
       limparCampos();
       setModalVisible(false);
       carregarTreinos();
     } catch (error) {
-      Alert.alert('Erro', 'Falha ao salvar treino');
+      Alert.alert('Erro', isEditMode ? 'Falha ao editar treino' : 'Falha ao salvar treino');
       console.error(error);
     }
   };
@@ -113,47 +127,72 @@ export default function Treinos() {
     setCategoria('');
     setIntensidade('');
     setObservacoes('');
+    setEditandoTreino(null);
+    setIsEditMode(false);
+  };
+
+  const abrirModalEdicao = (treino) => {
+    setAtividade(treino.atividade);
+    setDuracaoMin(treino.duracaoMin.toString());
+    setCategoria(treino.categoria);
+    setIntensidade(treino.intensidade || '');
+    setObservacoes(treino.observacoes || '');
+    setEditandoTreino(treino);
+    setIsEditMode(true);
+    setModalVisible(true);
+  };
+
+  const abrirModalCadastro = () => {
+    limparCampos();
+    setModalVisible(true);
+  };
+
+  const confirmarExclusaoTotal = () => {
+    Alert.alert(
+      'Excluir Todos os Treinos',
+      `Tem certeza que deseja excluir todos os ${treinos.length} treinos? Esta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Excluir Todos', style: 'destructive', onPress: excluirTodosConfirmado }
+      ]
+    );
+  };
+
+  const excluirTodosConfirmado = async () => {
+    try {
+      await excluirTodosTreinos();
+      Alert.alert('Sucesso', 'Todos os treinos foram excluídos!');
+      carregarTreinos();
+    } catch (error) {
+      Alert.alert('Erro', 'Falha ao excluir todos os treinos');
+      console.error(error);
+    }
   };
 
   const renderTreino = ({ item }) => (
     <View style={styles.treinoItem}>
       <View style={styles.treinoHeader}>
         <Text style={styles.treinoAtividade}>{item.atividade}</Text>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => confirmarExclusao(item.id, item.atividade)}
-        >
-          <Text style={styles.deleteButtonText}>×</Text>
-        </TouchableOpacity>
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => abrirModalEdicao(item)}
+          >
+            <Text style={styles.editButtonText}>✎</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => confirmarExclusao(item.id, item.atividade)}
+          >
+            <Text style={styles.deleteButtonText}>×</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       
       <View style={styles.treinoInfo}>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Duração:</Text>
-          <Text style={styles.infoValue}>{item.duracaoMin} min</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Categoria:</Text>
-          <Text style={styles.infoValue}>{item.categoria}</Text>
-        </View>
-      </View>
-      
-      {item.intensidade && (
-        <View style={styles.extraInfo}>
-          <Text style={styles.infoLabel}>Intensidade:</Text>
-          <Text style={styles.infoValue}>{item.intensidade}</Text>
-        </View>
-      )}
-      
-      <View style={styles.treinoData}>
+        <Text style={styles.infoText}>{item.duracaoMin} min • {item.categoria} • {item.intensidade}</Text>
         <Text style={styles.dataText}>{item.data}</Text>
       </View>
-      
-      {item.observacoes && (
-        <View style={styles.observacoes}>
-          <Text style={styles.observacoesText}>{item.observacoes}</Text>
-        </View>
-      )}
     </View>
   );
 
@@ -202,7 +241,7 @@ export default function Treinos() {
         <Text style={styles.title}>Meus Treinos</Text>
         <TouchableOpacity 
           style={styles.addButton}
-          onPress={() => setModalVisible(true)}
+          onPress={abrirModalCadastro}
         >
           <Text style={styles.addButtonText}>+ Novo</Text>
         </TouchableOpacity>
@@ -215,13 +254,26 @@ export default function Treinos() {
             <Text style={styles.emptySubtext}>Toque em "+ Novo" para adicionar seu primeiro treino</Text>
           </View>
         ) : (
-          <FlatList
-            data={treinos}
-            renderItem={renderTreino}
-            keyExtractor={(item) => item.id.toString()}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-          />
+          <>
+            <View style={styles.statsContainer}>
+              <Text style={styles.counterText}>
+                {treinos.length} treino{treinos.length !== 1 ? 's' : ''} cadastrado{treinos.length !== 1 ? 's' : ''}
+              </Text>
+              <TouchableOpacity 
+                style={styles.clearAllButton}
+                onPress={confirmarExclusaoTotal}
+              >
+                <Text style={styles.clearAllButtonText}>Apagar Tudo</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={treinos}
+              renderItem={renderTreino}
+              keyExtractor={(item) => item.id.toString()}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContainer}
+            />
+          </>
         )}
       </View>
 
@@ -243,7 +295,7 @@ export default function Treinos() {
               >
                 <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Novo Treino</Text>
+              <Text style={styles.modalTitle}>{isEditMode ? 'Editar Treino' : 'Novo Treino'}</Text>
               <TouchableOpacity 
                 onPress={salvarTreino}
                 style={styles.saveButton}
@@ -355,6 +407,32 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  counterText: {
+    fontSize: 14,
+    color: '#636e72',
+    fontWeight: '500',
+  },
+  clearAllButton: {
+    backgroundColor: '#e74c3c',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  clearAllButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -395,13 +473,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   treinoAtividade: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2d3436',
     flex: 1,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editButton: {
+    padding: 4,
+  },
+  editButtonText: {
+    fontSize: 18,
+    color: '#6c5ce7',
+    fontWeight: 'bold',
   },
   deleteButton: {
     padding: 4,
@@ -414,47 +504,16 @@ const styles = StyleSheet.create({
   treinoInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'center',
   },
-  infoItem: {
-    flex: 1,
-  },
-  extraInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  infoLabel: {
-    fontSize: 12,
+  infoText: {
+    fontSize: 14,
     color: '#636e72',
     fontWeight: '500',
   },
-  infoValue: {
-    fontSize: 14,
-    color: '#2d3436',
-    fontWeight: 'bold',
-    marginTop: 2,
-  },
-  treinoData: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-  },
   dataText: {
     fontSize: 12,
-    color: '#636e72',
-  },
-  observacoes: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-  },
-  observacoesText: {
-    fontSize: 12,
-    color: '#636e72',
-    fontStyle: 'italic',
+    color: '#b2bec3',
   },
   modalContainer: {
     flex: 1,
