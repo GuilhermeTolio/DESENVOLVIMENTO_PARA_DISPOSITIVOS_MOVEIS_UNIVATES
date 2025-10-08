@@ -74,3 +74,31 @@ export const excluirTreino = async (id) => {
     throw error;
   }
 };
+
+export const editarTreino = async (id, atividade, duracaoMin, categoria, intensidade, observacoes) => {
+  try {
+    const database = getDatabase();
+    const result = await database.runAsync(
+      'UPDATE treinos SET atividade = ?, duracaoMin = ?, categoria = ?, intensidade = ?, observacoes = ? WHERE id = ?',
+      [atividade, duracaoMin, categoria, intensidade || null, observacoes || null, id]
+    );
+    
+    console.log('Treino editado com sucesso!');
+    return result.changes;
+  } catch (error) {
+    console.error('Erro ao editar treino:', error);
+    throw error;
+  }
+};
+
+export const excluirTodosTreinos = async () => {
+  try {
+    const database = getDatabase();
+    const result = await database.runAsync('DELETE FROM treinos');
+    console.log('Todos os treinos foram excluídos!');
+    return result.changes;
+  } catch (error) {
+    console.error('Erro ao excluir todos os treinos:', error);
+    throw error;
+  }
+};
