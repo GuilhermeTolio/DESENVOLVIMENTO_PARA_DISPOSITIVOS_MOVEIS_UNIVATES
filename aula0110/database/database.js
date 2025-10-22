@@ -90,7 +90,7 @@ export const editarTreino = async (id, atividade, duracaoMin, categoria, intensi
     throw error;
   }
 };
-
+z
 export const excluirTodosTreinos = async () => {
   try {
     const database = getDatabase();
